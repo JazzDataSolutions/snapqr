@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    container_name: snapqr_db
+    environment:
+      POSTGRES_USER: snapqr_user
+      POSTGRES_PASSWORD: snapqr_pass
+      POSTGRES_DB: snapqr_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  auth_service:
+    build: ./services/authentication
+    container_name: snapqr_auth
+    ports:
+      - "8001:8000"
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgres://snapqr_user:snapqr_pass@db:5432/snapqr_db
+      # Variables de entorno necesarias (JWT secret, etc.)
+
+  user_management:
+    build: ./services/user_service
+    container_name: snapqr_user
+    ports:
+      - "8002:8000"
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgres://snapqr_user:snapqr_pass@db:5432/snapqr_db
+
+  qr_generator:
+    build: ./services/qr_generator
+    container_name: snapqr_qr
+    ports:
+      - "8003:8000"
+
+  face_recognition:
+    build: ./services/face_service
+    container_name: snapqr_face
+    ports:
+      - "8004:8000"
+
+  # Gateway Service (Opcional, si usamos un API Gateway como FastAPI o un reverse proxy)
+  gateway:
+    build: ./services/gateway
+    container_name: snapqr_gateway
+    ports:
+      - "8000:8000"
+    depends_on:
+      - authentication
+      - user_management
+      - qr_generator
+      - face_recognition
+
+volumes:
+  db_data:
+

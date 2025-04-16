@@ -46,7 +46,7 @@ Cada microservicio está escrito en **Python** usando **FastAPI** (u otro framew
 
 ## Estructura de Carpetas
 
-***
+```bash
 snapqr/
 ├── services/
 │   ├── authentication/
@@ -64,7 +64,7 @@ snapqr/
 ├── config/              # Configuraciones globales (env vars, etc.)
 ├── docker-compose.yml
 └── README.md
-***
+```
 
 
 ## Requisitos Previos

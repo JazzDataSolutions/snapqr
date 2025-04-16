@@ -108,46 +108,60 @@ snapqr/
    ```
 
 
-## 1. **Deployment Diagram** (Arquitectura de microservicios en contenedores)
+## High Level Architecture
+
+1. **Arquitectura de microservicios en contenedores)**
 
 Representa cómo están distribuidos los microservicios en contenedores y su interacción con la base de datos.
 
-```plantuml
-@startuml
+- Cada microservicio corre en su propio contenedor (auth, userM, qrG, faceR, gateway).
+- Todos se conectan a la base de datos a través del contenedor de Postgres (db).
+- El Gateway Service, si existe, enruta las solicitudes a los demás microservicios.
 
-title "SnapQR - Deployment Diagram"
+![alt text](img/docker_compose_arch.png "Arquitectura de microservicios en contenedores")
 
-node "Docker Host" {
-  cloud "Docker Network" {
-    node "auth_service container" as authC {
-      [Auth Service (FastAPI)]
-    }
-    node "user_service container" as userC {
-      [User Service (FastAPI)]
-    }
-    node "qr_service container" as qrC {
-      [QR Service (FastAPI)]
-    }
-    node "face_service container" as faceC {
-      [Face Service (FastAPI)]
-    }
-    node "gateway_service container" as gwC {
-      [Gateway Service (opcional)]
-    }
-    node "db container" as dbC {
-      [PostgreSQL]
-    }
-  }
-}
 
-authC -- dbC
-userC -- dbC
-qrC --> userC
-faceC --> userC
-gwC --> authC
-gwC --> userC
-gwC --> qrC
-gwC --> faceC
+2. Casos de Uso Principales
 
-@enduml
-```
+Muestra la interacción de actores (Usuario, Administrador, Personal del Evento) con los casos de uso relevantes (Enrolamiento, Generar QR, Escanear QR, Subir Fotos, Distribuir Fotos).
+
+- El Usuario se registra, inicia sesión, genera y escanea QR.
+- El Personal del Evento sube fotos al final del día.
+- El Administrador puede ayudar en enrolar usuarios, gestionar cuentas, y configurar la distribución de fotos.
+
+![alt text](img/use_case.png "Casos de Uso")
+
+3. Enrolamiento
+
+Muestra el flujo cuando un usuario se registra, sube su foto y se genera su perfil. Intervienen varios microservicios: Authentication (para crear credenciales), User Management (para almacenar datos y foto) y opcionalmente Face Recognition (para procesar y guardar embeddings).
+
+- Authentication crea credenciales y retorna un token JWT para la sesión.
+- El User Service recibe la foto y datos de contacto, la envía al Face Recognition para crear el embedding.
+- El Face Recognition regresa el embedding y el User Management completa el enrolamiento.
+
+
+![alt text](img/enroll.png "Enrolamiento")
+
+
+4. **Flujo de Reconocimiento y Distribución de Fotos**
+
+Representa lo que sucede cuando, al final del día, se suben fotos en lote al Face Recognition y este envía los resultados al User Management, que luego notifica o almacena en la cuenta de cada usuario.
+
+- Personal Evento sube un lote de fotos al FaceRecognition.
+- El FaceRecognition detecta/identifica los rostros y consulta el UserManagement para mapear rostros a usuarios.
+- El UserManagement almacena la foto (usando un servicio de correo, nube o local) y actualiza los perfiles de los usuarios detectados.
+- Se confirma la finalización del proceso.
+
+
+[alt text](img/fr_flow.png "Floujo de Reconocimiento Facial")
+
+5. **Component Diagram** (Organización Lógica de Módulos / Microservicios)
+
+Muestra cómo se separan los componentes principales (Auth, User, QR, Face) y sus dependencias.
+
+- Cada caja es un componente (microservicio).
+- Cada uno se comunica con la base de datos para la parte que le corresponde o lo hace a través de un Gateway.
+- El QR Service interactúa con UserManagement para obtener/almacenar info.
+
+
+[alt text](img/components.png "Component Diagram")

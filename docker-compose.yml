@@ -14,23 +14,27 @@ services:
       - db_data:/var/lib/postgresql/data
 
   auth_service:
-    build: ./services/authentication
+    build: ./services/auth_service
     container_name: snapqr_auth
     ports:
       - "8001:8000"
     depends_on:
       - db
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgres://snapqr_user:snapqr_pass@db:5432/snapqr_db
       # Variables de entorno necesarias (JWT secret, etc.)
 
   user_management:
-    build: ./services/user_service
+    build: ./services/user_management
     container_name: snapqr_user
     ports:
       - "8002:8000"
     depends_on:
       - db
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgres://snapqr_user:snapqr_pass@db:5432/snapqr_db
 
@@ -39,24 +43,65 @@ services:
     container_name: snapqr_qr
     ports:
       - "8003:8000"
+    env_file:
+      - .env
+    depends_on:
+      - user_management
 
   face_recognition:
-    build: ./services/face_service
+    build: ./services/face_recognition
     container_name: snapqr_face
     ports:
       - "8004:8000"
-
-  # Gateway Service (Opcional, si usamos un API Gateway como FastAPI o un reverse proxy)
-  gateway:
-    build: ./services/gateway
-    container_name: snapqr_gateway
-    ports:
-      - "8000:8000"
+    env_file:
+      - .env
     depends_on:
-      - authentication
+      - auth_service
+      - user_management
+
+  photo_processing:
+    build: ./services/photo_processing
+    container_name: snapqr_photo
+    ports:
+      - "8005:8000"
+    env_file:
+      - .env
+    depends_on:
+      - face_recognition
+      - qr_generator
+
+  notification_service:
+    build: ./services/notification_service
+    container_name: snapqr_notify
+    ports:
+      - "8006:8000"
+    env_file:
+      - .env
+    depends_on:
+      - user_management
+
+
+ # ——— MOBILE (Metro Bundler) ———
+  mobile:
+    container_name: snapqr_mobile
+    build:
+      context: ./mobile
+      dockerfile: Dockerfile
+    volumes:
+      - ./mobile:/app
+      - /app/node_modules
+    ports:
+      - "8081:8081"      # Metro Bundler default
+      - "19000:19000"    # Expo DevTools
+    environment:
+      - REACT_NATIVE_PACKAGER_HOSTNAME=0.0.0.0
+    command: yarn start --host 0.0.0.0
+    depends_on:
+      - auth_service
       - user_management
       - qr_generator
-      - face_recognition
+      - photo-processing-service
+
 
 volumes:
   db_data:

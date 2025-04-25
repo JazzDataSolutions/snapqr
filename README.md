@@ -1,71 +1,71 @@
-# SnapQR Microservices
+# SnapQR 
 
-**SnapQR** es un sistema basado en microservicios para enrolar usuarios, reconocer rostros y generar/leer códigos QR (inspirado en la necesidad de un evento donde se tomen fotografías y se distribuyan a los participantes identificados por su rostro).
+SnapQR es un MVP que permite a los asistentes de un evento:
 
-## Tabla de Contenidos
-1. [Arquitectura](#arquitectura)
-2. [Servicios](#servicios)
-3. [Requisitos Previos](#requisitos-previos)
-4. [Cómo Usar](#cómo-usar)
-5. [Estructura de Carpetas](#estructura-de-carpetas)
-6. [Buenas Prácticas y SOLID](#buenas-prácticas-y-solid)
-7. [Licencia](#licencia)
+- **Registrarse** y enrolarse con foto de perfil.  
+- **Generar y escanear** códigos QR para compartir datos de contacto.  
+- **Subir fotos** tomadas durante el evento, almacenarlas en S3 y asociarlas a los usuarios detectados por reconocimiento facial.
 
----
+Toda la aplicación está empaquetada en contenedores Docker: un backend monolítico en FastAPI, una app móvil en React Native+TypeScript, una base de datos PostgreSQL y MinIO (emulación de S3) para desarrollo.
 
-## Arquitectura
-El proyecto sigue un enfoque de **microservicios** con contenedores Docker y un `docker-compose.yml` que orquesta:
-- Un servicio de **Base de Datos** (Postgres).
-- Servicios independientes para **auth**, **usuarios**, **QR**, **reconocimiento facial** y opcionalmente un **gateway**.
-  
-Cada microservicio está escrito en **Python** usando **FastAPI** (u otro framework que prefieras).
-
----
-
-## Servicios
-
-1. **Auth Service**  
-   - *Responsabilidad:* Registro de usuarios, login, tokens JWT, etc.
-
-2. **User Service**  
-   - *Responsabilidad:* Manejo del perfil de usuario, datos básicos y foto.
-
-3. **QR Service**  
-   - *Responsabilidad:* Generar códigos QR con la información de contacto, leer/decodificar QRs.
-
-4. **Face Service**  
-   - *Responsabilidad:* Procesar y reconocer rostros en las fotos usando librerías de computer vision.
-
-5. **Gateway Service** (Opcional)  
-   - *Responsabilidad:* Punto de entrada unificado para clientes externos, orquestando las rutas a otros microservicios.
-
-6. **DB**  
-   - *Responsabilidad:* Almacenar la información. Aquí se puede usar Postgres, MySQL, etc.
-
----
 
 ## Estructura de Carpetas
 
 ```bash
 snapqr/
-├── services/
-│   ├── authentication/
-│   │   ├── app/
-│   │   │   ├── domain/          # Entidades, modelos del dominio, repos
-│   │   │   ├── application/     # Casos de uso, lógica de negocio
-│   │   │   ├── infrastructure/  # DB, seguridad, adaptadores
-│   │   │   └── main.py          # Punto de arranque (FastAPI)
-│   │   ├── requirements.txt
-│   │   └── Dockerfile
-│   ├── user_managment/
-│   ├── qr_generator/
-│   ├── face_recognition/
-│   └── gateway_service/
-├── config/              # Configuraciones globales (env vars, etc.)
-├── docker-compose.yml
-└── README.md
+├── .env                       # Variables de entorno globales
+├── docker-compose.yml         # Orquestación de contenedores
+├── README.md                  # Esta documentación
+├── backend/                   # Código del API (FastAPI monolito)
+│   ├── alembic/               # Migraciones de base de datos
+│   ├── app/
+│   │   ├── main.py            # Punto de arranque y routers
+│   │   ├── config.py          # Pydantic Settings (carga de .env)
+│   │   ├── db.py              # Engine y sesión de SQLModel
+│   │   ├── models.py          # Definición de tablas con SQLModel
+│   │   ├── core/
+│   │   │   ├── security.py    # JWT y hashing de contraseñas
+│   │   │   └── storage.py     # Cliente S3/MinIO
+│   │   ├── routers/
+│   │   │   ├── auth.py        # Endpoints /v1/auth
+│   │   │   ├── users.py       # Endpoints /v1/users
+│   │   │   ├── qr.py          # Endpoints /v1/qr
+│   │   │   └── photos.py      # Endpoints /v1/photos
+│   │   └── schemas/           # Pydantic models de request/response
+│   ├── requirements.txt       # Dependencias Python
+│   └── Dockerfile             # Imagen del API
+└── mobile/                    # App React Native + TypeScript
+    ├── Dockerfile             # Contenedor Metro Bundler
+    ├── package.json           # Dependencias JS/TS
+    ├── tsconfig.json          # Configuración TypeScript
+    ├── babel.config.js        # Babel para RN
+    └── src/
+        ├── presentation/      # UI: pantallas y componentes
+        ├── domain/            # Entidades, casos de uso, interfaces
+        ├── data/              # Repositorios, mapeadores, modelos
+        └── infrastructure/    # Adaptadores: API client, S3 client
 ```
 
+## 📝 Explicación del Código y Carpetas
+
+```
+backend/app/
+	main.py: instancia FastAPI, registra routers y excepciones globales, crea tablas al iniciar.
+	config.py: clase Settings que carga variables de entorno (.env).
+	db.py: crea engine de SQLModel y genera sesiones.
+	models.py: define las tablas con SQLModel y relaciones (1-a-muchos, muchos-a-muchos).
+	core/security.py: funciones para crear/validar JWT y hashear contraseñas con bcrypt.
+	core/storage.py: cliente de S3/MinIO para operaciones put_object, get_presigned_url.
+	routers/: cada archivo (auth.py, users.py, qr.py, photos.py) expone endpoints de su dominio.
+	schemas/: Pydantic/SQLModel models para validar requests y formatear responses.
+
+mobile/src/
+	presentation/: pantallas (LoginScreen.tsx, ProfileScreen.tsx, PhotoUploadScreen.tsx) y componentes UI.
+	domain/: entidades (User.ts), casos de uso (RegisterUser.ts, UploadPhoto.ts) e interfaces (IAuthService.ts).
+	data/: implementación de repositorios que usan la API (AuthRepository.ts, PhotoRepository.ts) y mapeo de DTOs.
+	infrastructure/api/: axiosClient.ts con baseURL apuntando a http://api:8000/v1, y módulos (authApi.ts, userApi.ts, photoApi.ts).
+	infrastructure/storage/: s3Client.ts que convierte URL de S3 a pre-signed URLs para la app.
+```
 
 ## Requisitos Previos
 - [Docker](https://docs.docker.com/get-docker/) >= 20.10
@@ -82,86 +82,57 @@ snapqr/
    cd snapqr
    ```
 
-2. **Construir los contenedores**
+2. Copia el .env.example a .env y completa tus credenciales (Postgres, AWS/MinIO, JWT).
+
+3. **Construir los contenedores**
    ```bash
    docker-compose build
    ```
 
-3. **Levantar los servicios**
+4. **Levantar los servicios**
   ```bash
    docker-compose up -d
   ```
 
-4. **Verificar que todo corre correctamente**
+5. **Verificar que todo corre correctamente**
   ```bash
   docker-compose ps
   docker-compose logs -f
   ```
 
-5. Acceder a los servicios
+6. Acceder a los servicios
   ```bash
-   Gateway Service (si está configurado): http://localhost:8000
-   Authenticator: http://localhost:8001
-   User Managment: http://localhost:8002
-   QR Generator: http://localhost:8003
-   Face Recognition: http://localhost:8004
-   ```
+  curl http://localhost:8000/v1/health
+  curl http://localhost:8081       # Metro Bundler
+  ```
 
 
 ## High Level Architecture
 
-1. **Arquitectura de microservicios en contenedores)**
+1. **Deployment Diagram**
 
-Representa cómo están distribuidos los microservicios en contenedores y su interacción con la base de datos.
+- api: agrupa Auth, User/Profile, QR y Photo en un solo servicio FastAPI.
+- mobile: Metro bundler para RN, recibe cambios en caliente.
+- db: PostgreSQL con SQLModel.
+- minio: emulación de S3 para desarrollo, expone bucket snapqr-event-photos.
 
-- Cada microservicio corre en su propio contenedor (auth, userM, qrG, faceR, gateway).
-- Todos se conectan a la base de datos a través del contenedor de Postgres (db).
-- El Gateway Service, si existe, enruta las solicitudes a los demás microservicios.
-
-![alt text](img/docker_compose_arch.png "Arquitectura de microservicios en contenedores")
-
-
-2. Casos de Uso Principales
-
-Muestra la interacción de actores (Usuario, Administrador, Personal del Evento) con los casos de uso relevantes (Enrolamiento, Generar QR, Escanear QR, Subir Fotos, Distribuir Fotos).
-
-- El Usuario se registra, inicia sesión, genera y escanea QR.
-- El Personal del Evento sube fotos al final del día.
-- El Administrador puede ayudar en enrolar usuarios, gestionar cuentas, y configurar la distribución de fotos.
-
-![alt text](img/use_case.png "Casos de Uso")
-
-3. Enrolamiento
-
-Muestra el flujo cuando un usuario se registra, sube su foto y se genera su perfil. Intervienen varios microservicios: Authentication (para crear credenciales), User Management (para almacenar datos y foto) y opcionalmente Face Recognition (para procesar y guardar embeddings).
-
-- Authentication crea credenciales y retorna un token JWT para la sesión.
-- El User Service recibe la foto y datos de contacto, la envía al Face Recognition para crear el embedding.
-- El Face Recognition regresa el embedding y el User Management completa el enrolamiento.
+![alt text](img/deployment_arch.png)
 
 
-![alt text](img/enroll.png "Enrolamiento")
+2. **Sequence Diagram – Registro ⇒ Perfil ⇒ Foto**
+
+- El usuario se registra, recibe JWT.
+- Envía su perfil con foto, la API guarda la imagen en S3 y actualiza su URL en la base de datos.
+- Sube fotos de evento; la API las almacena en S3 y registra un foto_evento.
 
 
-4. **Flujo de Reconocimiento y Distribución de Fotos**
+![alt text](img/secuence_flow.png)
 
-Representa lo que sucede cuando, al final del día, se suben fotos en lote al Face Recognition y este envía los resultados al User Management, que luego notifica o almacena en la cuenta de cada usuario.
+3. **ER Diagram – Tablas Mínimas**
 
-- Personal Evento sube un lote de fotos al FaceRecognition.
-- El FaceRecognition detecta/identifica los rostros y consulta el UserManagement para mapear rostros a usuarios.
-- El UserManagement almacena la foto (usando un servicio de correo, nube o local) y actualiza los perfiles de los usuarios detectados.
-- Se confirma la finalización del proceso.
+- usuario: datos básicos y URL de foto de perfil.
+- credencial: hash de contraseña y fecha de creación.
+- foto_evento: referencia a fotos subidas, si fueron procesadas.
+- foto_usuario: tabla intermedia que asocia fotos a usuarios detectados.
 
-
-[alt text](img/fr_flow.png "Floujo de Reconocimiento Facial")
-
-5. **Component Diagram** (Organización Lógica de Módulos / Microservicios)
-
-Muestra cómo se separan los componentes principales (Auth, User, QR, Face) y sus dependencias.
-
-- Cada caja es un componente (microservicio).
-- Cada uno se comunica con la base de datos para la parte que le corresponde o lo hace a través de un Gateway.
-- El QR Service interactúa con UserManagement para obtener/almacenar info.
-
-
-[alt text](img/components.png "Component Diagram")
+![alt text](img/er.png)

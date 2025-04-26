@@ -8,6 +8,8 @@ SnapQR es un MVP que permite a los asistentes de un evento:
 
 Toda la aplicación está empaquetada en contenedores Docker: un backend monolítico en FastAPI, una app móvil en React Native+TypeScript, una base de datos PostgreSQL y MinIO (emulación de S3) para desarrollo.
 
+Nota:
+- El codigo en ingles
 
 ## Estructura de Carpetas
 

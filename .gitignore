@@ -176,4 +176,4 @@ venv
 __pycache__
 *.pyc
 .env
-app/envqr/
+backend/app/envqr/

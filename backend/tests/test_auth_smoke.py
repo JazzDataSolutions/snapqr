@@ -1,5 +1,10 @@
 import os
 import pytest
+import sys
+# Agregar ruta a site-packages de venv para dependencias
+venv_site = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'envqr', 'lib', 'python3.11', 'site-packages')
+if os.path.isdir(venv_site):
+    sys.path.insert(0, venv_site)
 from fastapi.testclient import TestClient
 from app.main import app
 

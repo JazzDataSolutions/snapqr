@@ -5,8 +5,8 @@ from typing import Optional
 
 class RegisterRequest(BaseModel):
     email: EmailStr
-    nombre: str = Field(..., min_length=1, max_length=100)
     password: str = Field(..., min_length=8)
+    name: Optional[str] = None
 
 class LoginRequest(BaseModel):
     email: EmailStr

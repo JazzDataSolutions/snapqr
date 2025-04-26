@@ -6,10 +6,10 @@ from typing import Optional
 class UserProfileResponse(BaseModel):
     id: int
     email: EmailStr
-    nombre: str
-    empresa: Optional[str] = None
-    posicion: Optional[str] = None
-    foto_perfil_url: Optional[str] = None
+    name: str
+    company: Optional[str] = None
+    position: Optional[str] = None
+    profile_photo_url: Optional[str] = None
 
     class Config:
         orm_mode = True

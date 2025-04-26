@@ -7,7 +7,7 @@ import os
 import uuid
 
 from app.db import get_session
-from app.models import Usuario
+from app.models import User
 from app.schemas.user import UserProfileResponse
 from app.core.storage import upload_to_s3, generate_presigned_url
 
@@ -17,27 +17,27 @@ router = APIRouter()
 @router.post(
     "/profile",
     response_model=UserProfileResponse,
-    summary="Crear o actualizar perfil de usuario"
+    summary="Create or update user profile"
 )
 async def create_or_update_profile(
-    user_id: int = Form(..., description="ID del usuario a actualizar"),
-    nombre: str = Form(..., description="Nombre completo"),
-    empresa: Optional[str] = Form(None, description="Empresa"),
-    posicion: Optional[str] = Form(None, description="Posición"),
-    file: Optional[UploadFile] = File(None, description="Foto de perfil"),
+    user_id: int = Form(..., description="User ID to update"),
+    name: str = Form(..., description="Full name"),
+    company: Optional[str] = Form(None, description="Company"),
+    position: Optional[str] = Form(None, description="Position"),
+    file: Optional[UploadFile] = File(None, description="Profile photo"),
     session: Session = Depends(get_session)
 ):
-    # Buscar usuario existente
-    user = session.get(Usuario, user_id)
+    # Get existing user
+    user = session.get(User, user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        raise HTTPException(status_code=404, detail="User not found")
 
-    # Actualizar campos
-    user.nombre = nombre
-    user.empresa = empresa
-    user.posicion = posicion
+    # Update fields
+    user.name = name
+    user.company = company
+    user.position = position
 
-    # Si se envió una foto, subir a S3/MinIO y generar URL presignada
+    # If a file was uploaded, upload to S3/MinIO and generate a presigned URL
     if file:
         ext = file.filename.split(".")[-1]
         key = f"profiles/{user_id}/{uuid.uuid4()}.{ext}"
@@ -46,7 +46,7 @@ async def create_or_update_profile(
             f.write(await file.read())
         upload_to_s3(tmp_path, key)
         os.remove(tmp_path)
-        user.foto_perfil_url = generate_presigned_url(key)
+        user.profile_photo_url = generate_presigned_url(key)
 
     session.add(user)
     session.commit()
@@ -58,14 +58,14 @@ async def create_or_update_profile(
 @router.get(
     "/{user_id}",
     response_model=UserProfileResponse,
-    summary="Obtener perfil de usuario"
+    summary="Get user profile"
 )
 def get_profile(
     user_id: int,
     session: Session = Depends(get_session)
 ):
-    user = session.get(Usuario, user_id)
+    user = session.get(User, user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        raise HTTPException(status_code=404, detail="User not found")
     return UserProfileResponse.from_orm(user)
 

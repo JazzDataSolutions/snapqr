@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Button, Image, Text } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { uploadPhoto } from "../../infrastructure/api/photoApi";
+import { uploadPhoto } from "../../infra/api/photoApi";
 
 export default function PhotoUploadScreen() {
   const [imageUri, setImageUri] = useState<string|undefined>();

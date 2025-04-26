@@ -9,7 +9,7 @@ import uuid
 import os
 
 from app.db import get_session
-from app.models import Usuario, QRContacto
+from app.models import User, QRContact
 from app.schemas.qr import QRGenerateResponse
 from app.core.storage import upload_to_s3, generate_presigned_url
 
@@ -19,21 +19,21 @@ router = APIRouter()
 @router.post(
     "/{user_id}",
     response_model=QRGenerateResponse,
-    summary="Generar código QR para un usuario"
+    summary="Generate QR code for a user"
 )
 async def generate_qr(
     user_id: int,
     session: Session = Depends(get_session)
 ):
-    # 1) Verificar que el usuario exista
-    user = session.get(Usuario, user_id)
+    # Verify user exists
+    user = session.get(User, user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        raise HTTPException(status_code=404, detail="User not found")
 
-    # 2) Crear payload JSON para el QR
+    # Prepare JSON payload for QR
     data: Dict[str, str] = {
         "id": str(user.id),
-        "nombre": user.nombre,
+        "name": user.name,
         "email": user.email
     }
 
@@ -54,9 +54,9 @@ async def generate_qr(
     # 5) Generar URL presignada
     url = generate_presigned_url(key)
 
-    # 6) Guardar registro en la tabla qr_contacto
-    qr_record = QRContacto(
-        usuario_id=user_id,
+    # Save record in qr_contact table
+    qr_record = QRContact(
+        user_id=user_id,
         qr_data=data,
         qr_url=url
     )

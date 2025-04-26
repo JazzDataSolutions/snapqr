@@ -10,6 +10,9 @@ app.include_router(auth.router, prefix=settings.API_V1_STR + "/auth", tags=["aut
 app.include_router(users.router, prefix=settings.API_V1_STR + "/users", tags=["users"])
 app.include_router(qr.router, prefix=settings.API_V1_STR + "/qr", tags=["qr"])
 app.include_router(photos.router, prefix=settings.API_V1_STR + "/photos", tags=["photos"])
+@app.get(settings.API_V1_STR + "/health", tags=["health"])
+def health_check():
+    return {"status": "ok"}
 
 @app.on_event("startup")
 def on_startup():

@@ -13,7 +13,7 @@ class QRGenerateResponse(BaseModel):
                 "qr_url": "https://example-bucket.s3.amazonaws.com/qr/1/abcd-1234.png",
                 "qr_data": {
                     "id": "1",
-                    "nombre": "Juan Pérez",
+                    "name": "Juan Perez",
                     "email": "juan.perez@example.com"
                 }
             }

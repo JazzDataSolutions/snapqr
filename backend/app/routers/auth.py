@@ -7,7 +7,7 @@ from passlib.context import CryptContext
 from jose import jwt
 from app.config import settings
 from app.db import get_session
-from app.models import Usuario, Credencial
+from app.models import User, Credential
 from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse
 
 router = APIRouter()
@@ -33,37 +33,38 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     "/register",
     response_model=TokenResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Registro de usuario nuevo"
+    summary="Register a new user"
 )
 def register(
     req: RegisterRequest,
     session: Session = Depends(get_session)
 ):
-    # Verificar que no exista el email
+    # Verify that the email is not already registered
     existing = session.exec(
-        select(Usuario).where(Usuario.email == req.email)
+        select(User).where(User.email == req.email)
     ).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El email ya está registrado"
+            detail="Email is already registered"
         )
 
-    # Crear usuario
-    user = Usuario(email=req.email, nombre=req.nombre)
+    # Create user (optional name, default before '@')
+    user_name = req.name or req.email.split("@")[0]
+    user = User(email=req.email, name=user_name)
     session.add(user)
     session.commit()
     session.refresh(user)
 
-    # Crear credencial
-    cred = Credencial(
-        usuario_id=user.id,
+    # Create credential
+    cred = Credential(
+        user_id=user.id,
         password_hash=get_password_hash(req.password)
     )
     session.add(cred)
     session.commit()
 
-    # Generar tokens
+    # Generate tokens
     access_token = create_access_token(
         {"sub": str(user.id)},
         expires_delta=timedelta(minutes=30)
@@ -83,31 +84,31 @@ def register(
 @router.post(
     "/login",
     response_model=TokenResponse,
-    summary="Login de usuario"
+    summary="User login"
 )
 def login(
     req: LoginRequest,
     session: Session = Depends(get_session)
 ):
-    # Buscar usuario y credencial
+    # Retrieve user and credential
     user = session.exec(
-        select(Usuario).where(Usuario.email == req.email)
+        select(User).where(User.email == req.email)
     ).first()
-    if not user or not user.credencial:
+    if not user or not user.credential:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email o contraseña inválidos",
+            detail="Invalid email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    if not verify_password(req.password, user.credencial.password_hash):
+    if not verify_password(req.password, user.credential.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email o contraseña inválidos",
+            detail="Invalid email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Generar tokens
+    # Generate tokens
     access_token = create_access_token(
         {"sub": str(user.id)},
         expires_delta=timedelta(minutes=30)

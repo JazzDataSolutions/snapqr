@@ -1,7 +1,8 @@
 from pydantic import BaseSettings
 
 class Settings(BaseSettings):
-    POSTGRES_URL: str
+    # Database URL (defaults to local SQLite for development and testing)
+    POSTGRES_URL: str = "sqlite:///./test.db"
     API_V1_STR: str = "/v1"
     PROJECT_NAME: str = "SnapQR MVP"
     JWT_SECRET_KEY: str

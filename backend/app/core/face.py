@@ -4,13 +4,13 @@ from typing import List
 
 def get_face_embedding(image_path: str) -> List[float]:
     """
-    Carga la imagen, detecta el rostro y devuelve el embedding
-    (128-dim vector).
+    Load the image, detect the face, and return the embedding
+    (128-dimensional vector).
     """
     image = face_recognition.load_image_file(image_path)
     encs = face_recognition.face_encodings(image)
     if not encs:
-        raise ValueError("No se detectó ningún rostro")
+        raise ValueError("No face detected")
     return encs[0].tolist()
 
 def match_embeddings(
@@ -18,8 +18,8 @@ def match_embeddings(
     candidates: List[dict],
     threshold: float = 0.6) -> List[int]:
     """
-    candidates: lista de dict { usuario_id, vector }
-    Retorna lista de usuario_ids cuya distancia euclídea < threshold.
+    candidates: list of dicts { user_id, vector }
+    Returns a list of user_ids whose Euclidean distance < threshold.
     """
     t = np.array(target)
     matches = []
@@ -27,6 +27,6 @@ def match_embeddings(
         v = np.array(c["vector"])
         dist = np.linalg.norm(t - v)
         if dist < threshold:
-            matches.append(c["usuario_id"])
+            matches.append(c["user_id"])
     return matches
 

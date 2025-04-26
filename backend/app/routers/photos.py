@@ -3,53 +3,57 @@ from sqlmodel import Session, select
 import uuid, os
 
 from app.db import get_session
-from app.models import FotoEvento, Embedding, FotoUsuarioLink
+from app.models import EventPhoto, Embedding, PhotoUserLink
 from app.core.face import get_face_embedding, match_embeddings
-from app.core.storage import upload_to_s3
+from app.core.storage import upload_to_s3, download_from_s3
 
 router = APIRouter()
 
-@router.post("/upload")
+@router.post(
+    "/upload",
+    summary="Upload event photo, extract face embeddings, and match to users"
+)
 async def upload_photo(
     file: UploadFile = File(...),
     session: Session = Depends(get_session)
 ):
-    # 1) Guardar raw en /tmp
+    # 1) Save uploaded file to a temporary path
     tmp_path = f"/tmp/{uuid.uuid4()}.jpg"
     with open(tmp_path, "wb") as f:
         f.write(await file.read())
 
-    # 2) Subir a S3
+    # 2) Upload raw file to S3/MinIO
     s3_key = f"raw/{os.path.basename(tmp_path)}"
-    await upload_to_s3(tmp_path, s3_key)
+    # Raw file uploaded to S3/MinIO
+    upload_to_s3(tmp_path, s3_key)
     os.remove(tmp_path)
 
-    # 3) Registrar foto_evento
-    foto = FotoEvento(s3_key=s3_key)
-    session.add(foto)
+    # 3) Create event photo record
+    photo = EventPhoto(s3_key=s3_key)
+    session.add(photo)
     session.commit()
-    session.refresh(foto)
+    session.refresh(photo)
 
-    # 4) Generar embeddings del raw local
-    local_raw = f"/tmp/{foto.id}.jpg"
+    # 4) Download file for processing and generate face embedding
+    local_raw = f"/tmp/{photo.id}.jpg"
     
-    # Descarga temporal para procesar
-    await download_from_s3(s3_key, local_raw)
+    # Temporary download for embedding extraction
+    download_from_s3(s3_key, local_raw)
     emb = get_face_embedding(local_raw)
     os.remove(local_raw)
 
-    # 5) Cargar todos los embeddings registrados
+    # 5) Load all registered embeddings
     candidates = session.exec(select(Embedding)).all()
-    cands = [ {"usuario_id": e.usuario_id, "vector": e.vector} for e in candidates ]
+    cands = [{"user_id": e.user_id, "vector": e.vector} for e in candidates]
 
-    # 6) Emparejar
+    # 6) Match embeddings against candidates
     matched_ids = match_embeddings(emb, cands)
 
-    # 7) Insertar links
+    # 7) Insert links between photo and matched users
     for uid in set(matched_ids):
-        link = FotoUsuarioLink(foto_id=foto.id, usuario_id=uid)
+        link = PhotoUserLink(photo_id=photo.id, user_id=uid)
         session.add(link)
     session.commit()
 
-    return {"fotoId": foto.id, "usuarios_detectados": matched_ids}
+    return {"photo_id": photo.id, "detected_user_ids": matched_ids}
 

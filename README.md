@@ -133,10 +133,10 @@ mobile/src/
 3. **ER Diagram – Tablas Mínimas**
 
 **usuario**
-    - id: identificador único del usuario.
-    - email: clave única para login.
-    - nombre, empresa, posicion: datos de contacto.
-    - foto_perfil_url: URL presignada a la foto de perfil en S3/MinIO.
+- id: identificador único del usuario.
+- email: clave única para login.
+- nombre, empresa, posicion: datos de contacto.
+- foto_perfil_url: URL presignada a la foto de perfil en S3/MinIO.
 
 **credencial**
     - usuario_id: FK a usuario.id.

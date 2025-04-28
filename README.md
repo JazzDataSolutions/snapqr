@@ -138,82 +138,72 @@ mobile/src/
     - nombre, empresa, posicion: datos de contacto.
     - foto_perfil_url: URL presignada a la foto de perfil en S3/MinIO.
 
-credencial
-usuario_id: FK a usuario.id.
-password_hash: hash bcrypt de la contraseña.
-created_at: fecha de creación de la credencial.
-Uso: validación de login.
+**credencial**
+    - usuario_id: FK a usuario.id.
+    - password_hash: hash bcrypt de la contraseña.
+    - created_at: fecha de creación de la credencial.
+    - Uso: validación de login.
 
+**qr_contacto**
+    - id: PK.
+    - usuario_id: FK a usuario.id.
+    - qr_data: JSON con { id, nombre, email } para escaneo.
+    - qr_url: URL presignada al PNG generado.
+    - generado_en: timestamp de creación.
+    - Uso: compartir y escanear datos de contacto.
 
-qr_contacto
-id: PK.
-usuario_id: FK a usuario.id.
-qr_data: JSON con { id, nombre, email } para escaneo.
-qr_url: URL presignada al PNG generado.
-generado_en: timestamp de creación.
-Uso: compartir y escanear datos de contacto.
+**foto_evento**
+    - id: PK.
+    - s3_key: ruta en el bucket (raw/{uuid}.jpg).
+    - timestamp: cuándo se subió.
+    - procesada: flag para marcar si ya se corrió el face-recognition.
+    - Uso: registro de cada foto subida en el evento.
 
-foto_evento
-id: PK.
-s3_key: ruta en el bucket (raw/{uuid}.jpg).
-timestamp: cuándo se subió.
-procesada: flag para marcar si ya se corrió el face-recognition.
-Uso: registro de cada foto subida en el evento.
+**foto_usuario**
+    - foto_id, usuario_id: PK compuesta y FKs a foto_evento y usuario.
+    - Uso: tabla intermedia para asociar cada foto con los usuarios detectados en ella.
 
-foto_usuario
-foto_id, usuario_id: PK compuesta y FKs a foto_evento y usuario.
+**embedding**
+    - id: PK.
+    - usuario_id: FK a usuario.id.
+    - vector: array JSON con el embedding de dimensión 128.
+    - created_at: fecha de generación.
 
-Uso: tabla intermedia para asociar cada foto con los usuarios detectados en ella.
-
-embedding
-
-id: PK.
-
-usuario_id: FK a usuario.id.
-
-vector: array JSON con el embedding de dimensión 128.
-
-created_at: fecha de generación.
-
-Uso:
-
-Enrolamiento: cuando el usuario sube su foto de perfil, se extrae su vector usando face_recognition.face_encodings y se almacena aquí.
-
-Matching: al procesar cada foto_evento, se genera un embedding de la foto entera, y se compara contra todos los embeddings de usuario usando distancia euclidiana (o coseno) para encontrar coincidencias (foto_usuario).
+**Uso**:
+    - Enrolamiento: cuando el usuario sube su foto de perfil, se extrae su vector usando face_recognition.face_encodings y se almacena aquí.
+    - Matching: al procesar cada foto_evento, se genera un embedding de la foto entera, y se compara contra todos los embeddings de usuario usando distancia euclidiana (o coseno) para encontrar coincidencias (foto_usuario).
 
 ![alt text](img/er.png)
 
 ### Flujo de Embeddings
-Registro de Perfil
 
-El usuario envía su foto_perfil.
-Backend genera un embedding:
-python
-Copiar
-Editar
+#### Registro de Perfil
+
+    El usuario envía su foto_perfil.
+    Backend genera un embedding:
+
+```python
 emb = get_face_embedding(path_to_profile_photo)
 session.add(Embedding(usuario_id=user.id, vector=emb))
-Se guarda en la tabla embedding.
+```
 
-Procesamiento de Foto de Evento
+    Se guarda en la tabla embedding.
 
-Foto cruda guardada en foto_evento.
+#### Procesamiento de Foto de Evento
 
-Se descarga temporalmente, se extrae un embedding:
+    Foto cruda guardada en foto_evento.
+    Se descarga temporalmente, se extrae un embedding:
 
-python
-Copiar
-Editar
+```python
 emb_event = get_face_embedding(path_to_raw_event_photo)
-Se recuperan todos los vectores de embedding de la tabla para compararlos:
+```
+    Se recuperan todos los vectores de embedding de la tabla para compararlos:
 
-python
-Copiar
-Editar
+```python
 candidates = session.exec(select(Embedding)).all()
 matched_ids = match_embeddings(emb_event, candidates)
+```
+
 Para cada usuario_id coincidente, se inserta un registro en foto_usuario.
-
 Con esta estructura relacional y el uso de embeddings, SnapQR puede enrolar usuarios de forma biométrica y asociar eficientemente todas las fotos del evento con las personas que aparecen en ellas.
-
 
